@@ -68,7 +68,10 @@ export function SideNav({
                 key={item.id}
                 onClick={() => {
                   setActiveTab(item.id)
-                  setIsOpen(false)
+                  // Only close on mobile (md:hidden behavior)
+                  if (window.innerWidth < 768) {
+                    setIsOpen(false)
+                  }
                 }}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium transition-colors ${
                   isActive
