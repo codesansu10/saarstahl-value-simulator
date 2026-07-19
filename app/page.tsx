@@ -16,9 +16,7 @@ import type { BriefResult } from '@/lib/brief-schema'
 import { SideNav } from '@/components/side-nav'
 import { DealInputForm } from '@/components/deal-input-form'
 import { BusinessValuePanel } from '@/components/business-value-panel'
-import { ModelStatusBanner } from '@/components/model-status-banner'
 import { StakeholderPredictions } from '@/components/stakeholder-predictions'
-import { StakeholderPieChart } from '@/components/stakeholder-pie-chart'
 import { SalesBriefPanel } from '@/components/sales-brief-panel'
 
 type NavItem = 'calculator' | 'impact' | 'stakeholder' | 'brief'
@@ -239,8 +237,6 @@ export default function SimulatorPage() {
                       </>
                     )}
                   </button>
-
-                  <ModelStatusBanner prediction={prediction} />
                 </div>
 
                 <ContinueButton
