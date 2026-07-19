@@ -44,21 +44,22 @@ export function SideNav({
       <aside
         className={`${
           isOpen ? 'translate-x-0' : '-translate-x-full'
-        } fixed md:static inset-y-0 left-0 w-64 bg-background border-r border-border transition-transform duration-300 z-40 md:z-auto flex flex-col`}
+        } fixed md:static inset-y-0 left-0 w-56 bg-background border-r border-border transition-transform duration-300 z-40 md:z-auto flex flex-col`}
       >
-        {/* Logo section */}
-        <div className="p-6 border-b border-border">
-          <BrandLogo />
-          <div className="mt-2">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Green Steel
-            </p>
-            <p className="text-xs text-muted-foreground">Sales Support Tool</p>
+        {/* Logo section - Compact */}
+        <div className="p-4 border-b border-border">
+          <div className="flex items-center gap-2">
+            <BrandLogo />
+            <div>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Green Steel
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Navigation items */}
-        <nav className="flex-1 p-4 space-y-2">
+        {/* Navigation items - Compact */}
+        <nav className="flex-1 p-2 space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon
             const isActive = activeTab === item.id
@@ -67,25 +68,24 @@ export function SideNav({
                 key={item.id}
                 onClick={() => {
                   setActiveTab(item.id)
-                  setIsOpen(false) // Close on mobile after selection
+                  setIsOpen(false)
                 }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium transition-colors ${
                   isActive
                     ? 'bg-primary text-primary-foreground'
                     : 'text-foreground hover:bg-secondary/60'
                 }`}
               >
-                <Icon className="size-5 shrink-0" />
-                <span>{item.label}</span>
+                <Icon className="size-4 shrink-0" />
+                <span className="truncate">{item.label}</span>
               </button>
             )
           })}
         </nav>
 
-        {/* Footer info */}
-        <div className="p-4 border-t border-border text-[11px] text-muted-foreground space-y-1">
+        {/* Footer info - Compact */}
+        <div className="p-2 border-t border-border text-[9px] text-muted-foreground space-y-0.5">
           <p>© Saarstahl AG</p>
-          <p>DiGreeS Value Simulator</p>
         </div>
       </aside>
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useState, useMemo } from 'react'
-import { Loader2, RefreshCw, Download } from 'lucide-react'
+import { Loader2, ChevronRight, Download } from 'lucide-react'
 import type { DealInput, PredictionResponse, Stakeholder } from '@/lib/types'
 import { STAKEHOLDERS } from '@/lib/types'
 import { createMercedesExample } from '@/lib/defaults'
@@ -67,7 +67,6 @@ export default function SimulatorPage() {
     if (!prediction) return
     setBriefLoading(true)
     try {
-      // Find the prediction for the active stakeholder
       const stakeholderPred = prediction.predictions.find(
         (p) => p.stakeholder === activeStakeholder,
       )
@@ -92,7 +91,44 @@ export default function SimulatorPage() {
       provenance: { general: 'Calculated' },
     })
     downloadJson(`deal-${deal.companyName}`, exp)
-  }, [deal, output, features, prediction, brief, activeStakeholder])
+  }, [deal, output, features, prediction, brief])
+
+  // Deal info header component
+  const DealInfoHeader = () => (
+    <div className="border-b border-border bg-card/50 px-8 py-4">
+      <div className="grid grid-cols-4 gap-8 text-sm">
+        <div>
+          <p className="text-muted-foreground uppercase text-xs font-semibold">Company</p>
+          <p className="text-foreground font-semibold">{deal.companyName}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground uppercase text-xs font-semibold">Deal ID</p>
+          <p className="text-foreground font-semibold">{deal.dealId || '—'}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground uppercase text-xs font-semibold">Product</p>
+          <p className="text-foreground font-semibold">{deal.productName}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground uppercase text-xs font-semibold">CO₂ Saved</p>
+          <p className="text-foreground font-semibold">
+            {output ? `${Math.round(output.co2Saved).toLocaleString()} t` : '—'}
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+
+  // Continue button component
+  const ContinueButton = ({ onClick, label }: { onClick: () => void; label: string }) => (
+    <button
+      onClick={onClick}
+      className="mt-8 w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition-colors"
+    >
+      {label}
+      <ChevronRight className="size-4" />
+    </button>
+  )
 
   return (
     <div className="flex h-screen bg-background">
@@ -103,50 +139,51 @@ export default function SimulatorPage() {
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Step 1: Calculator */}
         {activeTab === 'calculator' && (
-          <div className="flex-1 overflow-auto">
-            <div className="max-w-4xl mx-auto p-8">
-              <div className="mb-8">
-                <h1 className="text-3xl font-bold text-foreground">
-                  Business Value Calculator
-                </h1>
-                <p className="text-muted-foreground mt-2">
-                  Enter deal information to calculate the business impact of green steel
-                </p>
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <DealInfoHeader />
+            <div className="flex-1 overflow-auto">
+              <div className="max-w-5xl mx-auto p-8">
+                <div className="mb-8">
+                  <h1 className="text-2xl font-bold text-foreground">
+                    Business Value Calculator
+                  </h1>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Enter deal information to calculate the business impact of green steel
+                  </p>
+                </div>
+
+                <DealInputForm deal={deal} onChange={handleDealChange} errors={errors} />
+
+                <ContinueButton
+                  onClick={() => setActiveTab('impact')}
+                  label={valid ? 'Continue to Impact Dashboard' : 'Complete form to continue'}
+                />
               </div>
-
-              <DealInputForm
-                deal={deal}
-                onChange={handleDealChange}
-                errors={errors}
-              />
-
-              <button
-                onClick={() => setActiveTab('impact')}
-                disabled={!valid}
-                className="mt-8 w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Calculate Impact
-                <RefreshCw className="size-4" />
-              </button>
             </div>
           </div>
         )}
 
         {/* Step 2: Impact Dashboard */}
         {activeTab === 'impact' && (
-          <div className="flex-1 overflow-auto">
-            <div className="p-8 h-full flex flex-col">
-              <div className="mb-8">
-                <h1 className="text-3xl font-bold text-foreground">
-                  Business Impact Dashboard
-                </h1>
-                <p className="text-muted-foreground mt-2">
-                  Overview of the quantified impact of switching to green steel
-                </p>
-              </div>
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <DealInfoHeader />
+            <div className="flex-1 overflow-auto">
+              <div className="p-8">
+                <div className="mb-6">
+                  <h1 className="text-2xl font-bold text-foreground">
+                    Business Impact Dashboard
+                  </h1>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Overview of the quantified impact of switching to green steel
+                  </p>
+                </div>
 
-              <div className="flex-1 overflow-auto">
                 <BusinessValuePanel deal={deal} output={output} />
+
+                <ContinueButton
+                  onClick={() => setActiveTab('stakeholder')}
+                  label="Continue to Stakeholder Analysis"
+                />
               </div>
             </div>
           </div>
@@ -154,57 +191,75 @@ export default function SimulatorPage() {
 
         {/* Step 3: Stakeholder Analysis */}
         {activeTab === 'stakeholder' && (
-          <div className="flex-1 overflow-auto">
-            <div className="p-8">
-              <div className="mb-8">
-                <h1 className="text-3xl font-bold text-foreground">
-                  Stakeholder Readiness Analysis
-                </h1>
-                <p className="text-muted-foreground mt-2">
-                  AI-powered prediction of stakeholder objections and readiness
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Pie chart */}
-                <div className="lg:col-span-1 bg-card rounded-lg border border-border p-6">
-                  <h3 className="font-semibold text-foreground mb-4">Risk Distribution</h3>
-                  {prediction ? (
-                    <StakeholderPieChart prediction={prediction} />
-                  ) : (
-                    <div className="flex items-center justify-center h-64 text-muted-foreground">
-                      Run prediction to see risk distribution
-                    </div>
-                  )}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <DealInfoHeader />
+            <div className="flex-1 overflow-auto">
+              <div className="p-8">
+                <div className="mb-6">
+                  <h1 className="text-2xl font-bold text-foreground">
+                    Stakeholder Readiness Analysis
+                  </h1>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    AI-powered prediction of stakeholder objections and readiness
+                  </p>
                 </div>
 
-                {/* Predictions */}
-                <div className="lg:col-span-2 space-y-4">
-                  {prediction ? (
-                    <>
+                {/* Pie chart and predictions side-by-side */}
+                <div className="grid grid-cols-5 gap-6">
+                  {/* Pie chart - LEFT */}
+                  <div className="col-span-2 bg-card rounded-lg border border-border p-6 h-fit">
+                    <h3 className="font-semibold text-foreground mb-6 text-sm">
+                      Stakeholder Readiness
+                    </h3>
+                    {prediction ? (
+                      <StakeholderPieChart prediction={prediction} />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-80 text-muted-foreground text-sm">
+                        <p>Run analysis to see readiness distribution</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Predictions and stakeholders - RIGHT */}
+                  <div className="col-span-3 space-y-4">
+                    {/* Stakeholder selector */}
+                    {prediction && (
+                      <div className="bg-card rounded-lg border border-border p-4">
+                        <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase">
+                          Select Stakeholder
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {STAKEHOLDERS.map((stakeholder) => (
+                            <button
+                              key={stakeholder}
+                              onClick={() => setActiveStakeholder(stakeholder)}
+                              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                                activeStakeholder === stakeholder
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-secondary hover:bg-secondary/80 text-foreground'
+                              }`}
+                            >
+                              {stakeholder}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Prediction details */}
+                    {prediction && (
                       <StakeholderPredictions
                         prediction={prediction}
                         activeStakeholder={activeStakeholder}
                         onSelectStakeholder={setActiveStakeholder}
                       />
-                      <button
-                        onClick={handleRunPrediction}
-                        disabled={predictionLoading}
-                        className="w-full flex items-center justify-center gap-2 px-6 py-2 border border-border rounded-lg font-semibold hover:bg-secondary"
-                      >
-                        {predictionLoading ? (
-                          <Loader2 className="size-4 animate-spin" />
-                        ) : (
-                          <RefreshCw className="size-4" />
-                        )}
-                        Re-run Analysis
-                      </button>
-                    </>
-                  ) : (
+                    )}
+
+                    {/* Run/Re-run button */}
                     <button
                       onClick={handleRunPrediction}
                       disabled={!valid || predictionLoading}
-                      className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 disabled:opacity-50"
+                      className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 disabled:opacity-50"
                     >
                       {predictionLoading ? (
                         <>
@@ -213,14 +268,20 @@ export default function SimulatorPage() {
                         </>
                       ) : (
                         <>
-                          Run Stakeholder Analysis
-                          <RefreshCw className="size-4" />
+                          {prediction ? 'Re-run' : 'Run'} Analysis
+                          <ChevronRight className="size-4" />
                         </>
                       )}
                     </button>
-                  )}
-                  <ModelStatusBanner prediction={prediction} />
+
+                    <ModelStatusBanner prediction={prediction} />
+                  </div>
                 </div>
+
+                <ContinueButton
+                  onClick={() => setActiveTab('brief')}
+                  label="Continue to AI Sales Brief"
+                />
               </div>
             </div>
           </div>
@@ -228,55 +289,76 @@ export default function SimulatorPage() {
 
         {/* Step 4: AI Sales Brief */}
         {activeTab === 'brief' && (
-          <div className="flex-1 overflow-auto">
-            <div className="p-8">
-              <div className="mb-8 flex items-center justify-between">
-                <div>
-                  <h1 className="text-3xl font-bold text-foreground">
-                    AI Sales Brief
-                  </h1>
-                  <p className="text-muted-foreground mt-2">
-                    Personalized conversation strategy based on predictions
-                  </p>
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <DealInfoHeader />
+            <div className="flex-1 overflow-auto">
+              <div className="p-8">
+                <div className="mb-6 flex items-center justify-between">
+                  <div>
+                    <h1 className="text-2xl font-bold text-foreground">
+                      AI Sales Preparation Brief
+                    </h1>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Personalized conversation strategy based on predictions
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleGenerateBrief}
+                      disabled={!prediction || briefLoading}
+                      className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 text-sm font-semibold"
+                    >
+                      {briefLoading ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        'Generate'
+                      )}
+                    </button>
+                    <button
+                      onClick={handleExport}
+                      className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg hover:bg-secondary text-sm font-semibold"
+                    >
+                      <Download className="size-4" />
+                      Export
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleGenerateBrief}
-                    disabled={!prediction || briefLoading}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
-                  >
-                    {briefLoading ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      'Generate'
-                    )}
-                  </button>
-                  <button
-                    onClick={handleExport}
-                    className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg hover:bg-secondary"
-                  >
-                    <Download className="size-4" />
-                    Export
-                  </button>
-                </div>
-              </div>
 
-              {brief ? (
-                <SalesBriefPanel result={brief} />
-              ) : (
-                <div className="bg-card rounded-lg border border-border p-12 text-center">
-                  <p className="text-muted-foreground mb-4">
-                    Generate a brief to see personalized conversation strategy
-                  </p>
-                  <button
-                    onClick={handleGenerateBrief}
-                    disabled={!prediction}
-                    className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
-                  >
-                    Generate Brief
-                  </button>
-                </div>
-              )}
+                {brief ? (
+                  <>
+                    <SalesBriefPanel result={brief} />
+                    <div className="mt-8 flex gap-3">
+                      <button
+                        onClick={() => setActiveTab('stakeholder')}
+                        className="px-6 py-3 border border-border rounded-lg hover:bg-secondary font-semibold flex items-center gap-2"
+                      >
+                        Back to Analysis
+                      </button>
+                      <button
+                        onClick={handleExport}
+                        className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 font-semibold flex items-center gap-2"
+                      >
+                        <Download className="size-4" />
+                        Download Brief
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="bg-card rounded-lg border border-border p-12 text-center">
+                    <p className="text-muted-foreground mb-6">
+                      Generate a brief to see personalized conversation strategy
+                    </p>
+                    <button
+                      onClick={handleGenerateBrief}
+                      disabled={!prediction}
+                      className="px-8 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 font-semibold inline-flex items-center gap-2"
+                    >
+                      Generate Brief
+                      <ChevronRight className="size-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
