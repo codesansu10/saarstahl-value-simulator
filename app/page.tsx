@@ -1,566 +1,286 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Loader2, RefreshCw, Download, ArrowRight } from 'lucide-react'
-import type {
-  DealInput,
-  PredictionResponse,
-  Stakeholder,
-  Provenance,
-} from '@/lib/types'
-import { createMercedesExample, createEmptyDeal } from '@/lib/defaults'
+import { useCallback, useState, useMemo } from 'react'
+import { Loader2, RefreshCw, Download } from 'lucide-react'
+import type { DealInput, PredictionResponse, Stakeholder } from '@/lib/types'
+import { STAKEHOLDERS } from '@/lib/types'
+import { createMercedesExample } from '@/lib/defaults'
 import { calculateBusinessValue } from '@/lib/value-calculator'
 import { validateDeal, isDealValid } from '@/lib/validation'
 import { buildFeatureRows } from '@/lib/feature-engineering'
 import { fetchPrediction, fetchBrief } from '@/lib/api-client'
-import {
-  loadCases,
-  saveCase,
-  deleteCase,
-  type SavedCase,
-} from '@/lib/storage'
-import { buildCaseExport, downloadJson, slugify } from '@/lib/export'
+import { loadCases, saveCase, deleteCase } from '@/lib/storage'
+import { buildCaseExport, downloadJson } from '@/lib/export'
 import type { BriefResult } from '@/lib/brief-schema'
 
-import { AppHeader } from '@/components/app-header'
-import { WorkflowStepper, type WorkflowStep } from '@/components/workflow-stepper'
+import { SideNav } from '@/components/side-nav'
 import { DealInputForm } from '@/components/deal-input-form'
 import { BusinessValuePanel } from '@/components/business-value-panel'
 import { ModelStatusBanner } from '@/components/model-status-banner'
 import { StakeholderPredictions } from '@/components/stakeholder-predictions'
+import { StakeholderPieChart } from '@/components/stakeholder-pie-chart'
 import { SalesBriefPanel } from '@/components/sales-brief-panel'
 
-// Step 1: Deal Input Page
-function Step1Page({
-  deal,
-  onChange,
-  errors,
-  valid,
-  onNext,
-}: {
-  deal: DealInput
-  onChange: (patch: Partial<DealInput>) => void
-  errors: Record<string, string>
-  valid: boolean
-  onNext: () => void
-}) {
-  return (
-    <div className="h-screen flex flex-col bg-gray-50">
-      <AppHeader />
-      <div className="flex-1 overflow-auto p-6">
-        <div className="mx-auto max-w-4xl space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold text-steel-grey-dark">
-              Business Value Calculator
-            </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Enter deal details to calculate the business impact of green steel
-            </p>
-          </div>
+type NavItem = 'calculator' | 'impact' | 'stakeholder' | 'brief'
 
-          <div className="rounded-2xl border border-border bg-card p-6">
-            <DealInputForm deal={deal} onChange={onChange} errors={errors} />
-          </div>
+export default function SimulatorPage() {
+  // Navigation state
+  const [activeTab, setActiveTab] = useState<NavItem>('calculator')
 
-          <div className="flex gap-3 justify-center pt-4">
-            <button
-              type="button"
-              onClick={() => {
-                onChange({})
-                setDeal(createEmptyDeal())
-              }}
-              className="rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-[var(--brand-green)]/50"
-            >
-              Reset
-            </button>
-            <button
-              type="button"
-              onClick={onNext}
-              disabled={!valid}
-              className="flex items-center gap-2 rounded-lg bg-[var(--brand-green)] px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-green-dark)] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Calculate Business Value
-              <ArrowRight className="size-4" aria-hidden />
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
+  // Deal state
+  const [deal, setDeal] = useState<DealInput>(createMercedesExample())
+  const errors = validateDeal(deal)
+  const valid = isDealValid(deal)
 
-// Step 2: Business Impact Dashboard
-function Step2Page({
-  deal,
-  output,
-  onEdit,
-  onNext,
-}: {
-  deal: DealInput
-  output: ReturnType<typeof calculateBusinessValue>
-  onEdit: () => void
-  onNext: () => void
-}) {
-  return (
-    <div className="h-screen flex flex-col bg-gray-50">
-      <AppHeader />
-      <div className="flex-1 overflow-auto p-6">
-        <div className="mx-auto max-w-7xl space-y-6">
-          {/* Top bar with deal context */}
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <h1 className="text-3xl font-bold text-steel-grey-dark">
-                Business Impact Dashboard
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Overview of the quantified impact of switching to green steel
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={onEdit}
-              className="rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground transition-colors hover:border-[var(--brand-green)]/50"
-            >
-              ✎ Edit Inputs
-            </button>
-          </div>
+  // Calculation state
+  const output = useMemo(() => calculateBusinessValue(deal), [deal])
+  const features = useMemo(() => buildFeatureRows(deal, output), [deal, output])
 
-          {/* KPI Cards Grid */}
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {/* CO2 Saved */}
-            <div className="rounded-xl border border-border bg-card p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-muted-foreground">
-                  CO₂ Saved
-                </span>
-                <span className="text-lg font-bold text-[var(--brand-green)]">
-                  ✓
-                </span>
-              </div>
-              <p className="text-2xl font-bold text-foreground">
-                {Math.round(output.co2Saved).toLocaleString()}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">t CO₂ / year</p>
-            </div>
-
-            {/* Premium per Product */}
-            <div className="rounded-xl border border-border bg-card p-4">
-              <span className="text-xs font-medium text-muted-foreground block mb-2">
-                Premium per Product
-              </span>
-              <p className="text-2xl font-bold text-foreground">
-                €{Math.round(output.premiumPerProduct)}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">per unit</p>
-            </div>
-
-            {/* Total Premium */}
-            <div className="rounded-xl border border-border bg-card p-4">
-              <span className="text-xs font-medium text-muted-foreground block mb-2">
-                Total Premium
-              </span>
-              <p className="text-2xl font-bold text-foreground">
-                €{Math.round(output.totalPremium / 1_000_000)}.{Math.round((output.totalPremium % 1_000_000) / 100_000)} M
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">per year</p>
-            </div>
-
-            {/* Product Price Impact */}
-            <div className="rounded-xl border border-border bg-card p-4">
-              <span className="text-xs font-medium text-muted-foreground block mb-2">
-                Product Price Impact
-              </span>
-              <p className="text-2xl font-bold text-foreground">
-                +{(output.premiumPercentage * 100).toFixed(1)}%
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">vs. conventional</p>
-            </div>
-          </div>
-
-          {/* Secondary Metrics + Summary */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="rounded-xl border border-border bg-card p-4">
-              <span className="text-xs font-medium text-muted-foreground block mb-2">
-                Material-Level Premium
-              </span>
-              <p className="text-lg font-bold text-foreground">
-                {output.premiumPercentage.toFixed(1)}%
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-border bg-card p-4">
-              <span className="text-xs font-medium text-muted-foreground block mb-2">
-                Proof Score
-              </span>
-              <p className="text-lg font-bold text-foreground">
-                {Math.round(output.proofScore * 100)}%
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-border bg-card p-4">
-              <span className="text-xs font-medium text-muted-foreground block mb-2">
-                Supply Reliability
-              </span>
-              <p className="text-lg font-bold text-foreground">
-                Medium
-              </p>
-            </div>
-          </div>
-
-          {/* Business Summary */}
-          <div className="rounded-xl border border-border bg-card p-4">
-            <h3 className="font-semibold text-foreground mb-2">Business Summary</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Choosing green steel for this deal increases the final vehicle cost by only €
-              {Math.round(output.premiumPerProduct)} per vehicle (
-              {(output.premiumPercentage * 100).toFixed(2)}%) while reducing embedded emissions by almost{' '}
-              {Math.round(output.co2Saved).toLocaleString()} t CO₂ per year.
-            </p>
-          </div>
-
-          {/* Action Button */}
-          <div className="flex justify-end pt-4">
-            <button
-              type="button"
-              onClick={onNext}
-              className="flex items-center gap-2 rounded-lg bg-[var(--brand-green)] px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-green-dark)]"
-            >
-              View Stakeholder Analysis
-              <ArrowRight className="size-4" aria-hidden />
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Step 3: Stakeholder Analysis
-function Step3Page({
-  prediction,
-  predLoading,
-  predError,
-  onRunPrediction,
-  activeStakeholder,
-  onSelectStakeholder,
-  onBack,
-  onNext,
-  valid,
-}: {
-  prediction: PredictionResponse | null
-  predLoading: boolean
-  predError: string | null
-  onRunPrediction: () => void
-  activeStakeholder: Stakeholder
-  onSelectStakeholder: (s: Stakeholder) => void
-  onBack: () => void
-  onNext: () => void
-  valid: boolean
-}) {
-  return (
-    <div className="h-screen flex flex-col bg-gray-50">
-      <AppHeader />
-      <div className="flex-1 overflow-auto p-6">
-        <div className="mx-auto max-w-7xl space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-steel-grey-dark">
-                Stakeholder Readiness Analysis
-              </h1>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Select a stakeholder to see their likely objections and readiness
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={onRunPrediction}
-              disabled={predLoading || !valid}
-              className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground transition-colors hover:border-[var(--brand-green)]/50 disabled:opacity-50"
-            >
-              {predLoading ? (
-                <Loader2 className="size-4 animate-spin" aria-hidden />
-              ) : (
-                <RefreshCw className="size-4" aria-hidden />
-              )}
-              Re-run Model
-            </button>
-          </div>
-
-          {predError && (
-            <div className="rounded-lg border border-[var(--risk-high)]/30 bg-[var(--risk-high-soft)] p-3 text-sm text-[var(--risk-high)]">
-              {predError}
-            </div>
-          )}
-
-          {predLoading && !prediction && (
-            <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
-              <Loader2 className="size-5 animate-spin text-[var(--brand-green)]" aria-hidden />
-              <span className="text-sm text-muted-foreground">
-                Scoring objections across stakeholders…
-              </span>
-            </div>
-          )}
-
-          {prediction && (
-            <div className="rounded-2xl border border-border bg-card p-6">
-              <ModelStatusBanner prediction={prediction} />
-            </div>
-          )}
-
-          {prediction && (
-            <div className="rounded-2xl border border-border bg-card p-6">
-              <StakeholderPredictions
-                prediction={prediction}
-                activeStakeholder={activeStakeholder}
-                onSelectStakeholder={onSelectStakeholder}
-              />
-            </div>
-          )}
-
-          {/* Navigation */}
-          <div className="flex justify-between pt-4">
-            <button
-              type="button"
-              onClick={onBack}
-              className="rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-[var(--brand-green)]/50"
-            >
-              ← Back
-            </button>
-            <button
-              type="button"
-              onClick={onNext}
-              disabled={!prediction}
-              className="flex items-center gap-2 rounded-lg bg-[var(--brand-green)] px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-green-dark)] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Generate AI Brief
-              <ArrowRight className="size-4" aria-hidden />
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Step 4: AI Sales Brief
-function Step4Page({
-  brief,
-  briefLoading,
-  briefError,
-  activeStakeholder,
-  onRunBrief,
-  prediction,
-  onBack,
-}: {
-  brief: BriefResult | null
-  briefLoading: boolean
-  briefError: string | null
-  activeStakeholder: Stakeholder
-  onRunBrief: (s: Stakeholder) => void
-  prediction: PredictionResponse | null
-  onBack: () => void
-}) {
-  return (
-    <div className="h-screen flex flex-col bg-gray-50">
-      <AppHeader />
-      <div className="flex-1 overflow-auto p-6">
-        <div className="mx-auto max-w-7xl space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-steel-grey-dark">
-                AI Sales Preparation Brief
-              </h1>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Intelligent talking points and next steps for your conversation
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                const element = document.createElement('a')
-                element.setAttribute(
-                  'href',
-                  'data:text/html;charset=utf-8,' +
-                    encodeURIComponent(
-                      document.documentElement.outerHTML,
-                    ),
-                )
-                element.setAttribute('download', 'brief.html')
-                element.style.display = 'none'
-                document.body.appendChild(element)
-                element.click()
-                document.body.removeChild(element)
-              }}
-              className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground transition-colors hover:border-[var(--brand-green)]/50"
-            >
-              <Download className="size-4" aria-hidden />
-              Export PDF
-            </button>
-          </div>
-
-          {briefError && (
-            <div className="rounded-lg border border-[var(--risk-high)]/30 bg-[var(--risk-high-soft)] p-3 text-sm text-[var(--risk-high)]">
-              {briefError}
-            </div>
-          )}
-
-          {briefLoading && (
-            <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
-              <Loader2 className="size-5 animate-spin text-[var(--brand-green)]" aria-hidden />
-              <span className="text-sm text-muted-foreground">
-                Generating AI brief…
-              </span>
-            </div>
-          )}
-
-          {brief && (
-            <div className="rounded-2xl border border-border bg-card p-6">
-              <SalesBriefPanel
-                brief={brief}
-                activeStakeholder={activeStakeholder}
-                onRegenerate={() => onRunBrief(activeStakeholder)}
-              />
-            </div>
-          )}
-
-          {/* Navigation */}
-          <div className="flex justify-between pt-4">
-            <button
-              type="button"
-              onClick={onBack}
-              className="rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-[var(--brand-green)]/50"
-            >
-              ← Back
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-export default function Page() {
-  const [deal, setDeal] = useState<DealInput>(() => createMercedesExample())
-  const [step, setStep] = useState(1)
-
+  // Prediction state
   const [prediction, setPrediction] = useState<PredictionResponse | null>(null)
-  const [predLoading, setPredLoading] = useState(false)
-  const [predError, setPredError] = useState<string | null>(null)
+  const [predictionLoading, setPredictionLoading] = useState(false)
+  const [activeStakeholder, setActiveStakeholder] = useState<Stakeholder>('Procurement')
 
-  const [activeStakeholder, setActiveStakeholder] =
-    useState<Stakeholder>('Procurement')
-
+  // Brief state
   const [brief, setBrief] = useState<BriefResult | null>(null)
   const [briefLoading, setBriefLoading] = useState(false)
-  const [briefError, setBriefError] = useState<string | null>(null)
 
-  const errors = useMemo(() => validateDeal(deal), [deal])
-  const valid = useMemo(() => isDealValid(deal), [deal])
-  const output = useMemo(
-    () => (valid ? calculateBusinessValue(deal) : null),
-    [deal, valid],
-  )
-
-  const onChange = useCallback((patch: Partial<DealInput>) => {
-    setDeal((d) => ({ ...d, ...patch }))
-    setPrediction(null)
-    setBrief(null)
-    setPredError(null)
+  // Handlers
+  const handleDealChange = useCallback((patch: Partial<DealInput>) => {
+    setDeal((prev) => ({ ...prev, ...patch }))
   }, [])
 
-  const runPrediction = useCallback(async () => {
-    if (!output) return
-    setPredLoading(true)
-    setPredError(null)
+  const handleRunPrediction = useCallback(async () => {
+    if (!valid) return
+    setPredictionLoading(true)
     try {
-      const res = await fetchPrediction(deal, output)
-      setPrediction(res)
-    } catch (e) {
-      setPredError(e instanceof Error ? e.message : 'Prediction failed')
+      const pred = await fetchPrediction(deal, output)
+      setPrediction(pred)
+    } catch (err) {
+      console.error('[v0] Prediction error:', err)
     } finally {
-      setPredLoading(false)
+      setPredictionLoading(false)
     }
-  }, [deal, output])
+  }, [deal, output, valid])
 
-  const runBrief = useCallback(
-    async (stakeholder: Stakeholder) => {
-      if (!prediction || !output) return
-      setActiveStakeholder(stakeholder)
-      setBriefLoading(true)
-      setBriefError(null)
-      try {
-        const res = await fetchBrief(deal, output, stakeholder, prediction)
-        setBrief(res)
-      } catch (e) {
-        setBriefError(e instanceof Error ? e.message : 'Brief generation failed')
-      } finally {
-        setBriefLoading(false)
-      }
-    },
-    [deal, output, prediction],
+  const handleGenerateBrief = useCallback(async () => {
+    if (!prediction) return
+    setBriefLoading(true)
+    try {
+      // Find the prediction for the active stakeholder
+      const stakeholderPred = prediction.predictions.find(
+        (p) => p.stakeholder === activeStakeholder,
+      )
+      if (!stakeholderPred) throw new Error('Stakeholder prediction not found')
+      const b = await fetchBrief(deal, output, stakeholderPred, activeStakeholder)
+      setBrief(b)
+    } catch (err) {
+      console.error('[v0] Brief error:', err)
+    } finally {
+      setBriefLoading(false)
+    }
+  }, [deal, output, prediction, activeStakeholder])
+
+  const handleExport = useCallback(() => {
+    if (!output) return
+    const exp = buildCaseExport({
+      deal,
+      output,
+      features,
+      prediction,
+      brief: brief ? brief.brief : null,
+      provenance: { general: 'Calculated' },
+    })
+    downloadJson(`deal-${deal.companyName}`, exp)
+  }, [deal, output, features, prediction, brief, activeStakeholder])
+
+  return (
+    <div className="flex h-screen bg-background">
+      {/* Side Navigation */}
+      <SideNav activeTab={activeTab} setActiveTab={setActiveTab} />
+
+      {/* Main content area */}
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {/* Step 1: Calculator */}
+        {activeTab === 'calculator' && (
+          <div className="flex-1 overflow-auto">
+            <div className="max-w-4xl mx-auto p-8">
+              <div className="mb-8">
+                <h1 className="text-3xl font-bold text-foreground">
+                  Business Value Calculator
+                </h1>
+                <p className="text-muted-foreground mt-2">
+                  Enter deal information to calculate the business impact of green steel
+                </p>
+              </div>
+
+              <DealInputForm
+                deal={deal}
+                onChange={handleDealChange}
+                errors={errors}
+              />
+
+              <button
+                onClick={() => setActiveTab('impact')}
+                disabled={!valid}
+                className="mt-8 w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Calculate Impact
+                <RefreshCw className="size-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Impact Dashboard */}
+        {activeTab === 'impact' && (
+          <div className="flex-1 overflow-auto">
+            <div className="p-8 h-full flex flex-col">
+              <div className="mb-8">
+                <h1 className="text-3xl font-bold text-foreground">
+                  Business Impact Dashboard
+                </h1>
+                <p className="text-muted-foreground mt-2">
+                  Overview of the quantified impact of switching to green steel
+                </p>
+              </div>
+
+              <div className="flex-1 overflow-auto">
+                <BusinessValuePanel deal={deal} output={output} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Stakeholder Analysis */}
+        {activeTab === 'stakeholder' && (
+          <div className="flex-1 overflow-auto">
+            <div className="p-8">
+              <div className="mb-8">
+                <h1 className="text-3xl font-bold text-foreground">
+                  Stakeholder Readiness Analysis
+                </h1>
+                <p className="text-muted-foreground mt-2">
+                  AI-powered prediction of stakeholder objections and readiness
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Pie chart */}
+                <div className="lg:col-span-1 bg-card rounded-lg border border-border p-6">
+                  <h3 className="font-semibold text-foreground mb-4">Risk Distribution</h3>
+                  {prediction ? (
+                    <StakeholderPieChart prediction={prediction} />
+                  ) : (
+                    <div className="flex items-center justify-center h-64 text-muted-foreground">
+                      Run prediction to see risk distribution
+                    </div>
+                  )}
+                </div>
+
+                {/* Predictions */}
+                <div className="lg:col-span-2 space-y-4">
+                  {prediction ? (
+                    <>
+                      <StakeholderPredictions
+                        prediction={prediction}
+                        activeStakeholder={activeStakeholder}
+                        onSelectStakeholder={setActiveStakeholder}
+                      />
+                      <button
+                        onClick={handleRunPrediction}
+                        disabled={predictionLoading}
+                        className="w-full flex items-center justify-center gap-2 px-6 py-2 border border-border rounded-lg font-semibold hover:bg-secondary"
+                      >
+                        {predictionLoading ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="size-4" />
+                        )}
+                        Re-run Analysis
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={handleRunPrediction}
+                      disabled={!valid || predictionLoading}
+                      className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 disabled:opacity-50"
+                    >
+                      {predictionLoading ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" />
+                          Analyzing...
+                        </>
+                      ) : (
+                        <>
+                          Run Stakeholder Analysis
+                          <RefreshCw className="size-4" />
+                        </>
+                      )}
+                    </button>
+                  )}
+                  <ModelStatusBanner prediction={prediction} />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 4: AI Sales Brief */}
+        {activeTab === 'brief' && (
+          <div className="flex-1 overflow-auto">
+            <div className="p-8">
+              <div className="mb-8 flex items-center justify-between">
+                <div>
+                  <h1 className="text-3xl font-bold text-foreground">
+                    AI Sales Brief
+                  </h1>
+                  <p className="text-muted-foreground mt-2">
+                    Personalized conversation strategy based on predictions
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleGenerateBrief}
+                    disabled={!prediction || briefLoading}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {briefLoading ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      'Generate'
+                    )}
+                  </button>
+                  <button
+                    onClick={handleExport}
+                    className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg hover:bg-secondary"
+                  >
+                    <Download className="size-4" />
+                    Export
+                  </button>
+                </div>
+              </div>
+
+              {brief ? (
+                <SalesBriefPanel result={brief} />
+              ) : (
+                <div className="bg-card rounded-lg border border-border p-12 text-center">
+                  <p className="text-muted-foreground mb-4">
+                    Generate a brief to see personalized conversation strategy
+                  </p>
+                  <button
+                    onClick={handleGenerateBrief}
+                    disabled={!prediction}
+                    className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    Generate Brief
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
   )
-
-  // Render the appropriate step
-  if (step === 1) {
-    return (
-      <Step1Page
-        deal={deal}
-        onChange={onChange}
-        errors={errors}
-        valid={valid}
-        onNext={() => setStep(2)}
-      />
-    )
-  }
-
-  if (step === 2) {
-    return (
-      <Step2Page
-        deal={deal}
-        output={output!}
-        onEdit={() => setStep(1)}
-        onNext={() => {
-          void runPrediction()
-          setStep(3)
-        }}
-      />
-    )
-  }
-
-  if (step === 3) {
-    return (
-      <Step3Page
-        prediction={prediction}
-        predLoading={predLoading}
-        predError={predError}
-        onRunPrediction={runPrediction}
-        activeStakeholder={activeStakeholder}
-        onSelectStakeholder={setActiveStakeholder}
-        onBack={() => setStep(2)}
-        onNext={() => {
-          if (prediction) {
-            void runBrief(activeStakeholder)
-            setStep(4)
-          }
-        }}
-        valid={valid}
-      />
-    )
-  }
-
-  if (step === 4) {
-    return (
-      <Step4Page
-        brief={brief}
-        briefLoading={briefLoading}
-        briefError={briefError}
-        activeStakeholder={activeStakeholder}
-        onRunBrief={runBrief}
-        prediction={prediction}
-        onBack={() => setStep(3)}
-      />
-    )
-  }
-
-  return null
 }
