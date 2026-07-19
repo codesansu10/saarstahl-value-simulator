@@ -11,6 +11,7 @@ import { buildFeatureRows } from '@/lib/feature-engineering'
 import { fetchPrediction, fetchBrief } from '@/lib/api-client'
 import { loadCases, saveCase, deleteCase } from '@/lib/storage'
 import { buildCaseExport, downloadJson } from '@/lib/export'
+import { generateBriefPDF } from '@/lib/pdf-export'
 import type { BriefResult } from '@/lib/brief-schema'
 
 import { SideNav } from '@/components/side-nav'
@@ -78,7 +79,7 @@ export default function SimulatorPage() {
     }
   }, [deal, output, prediction, activeStakeholder])
 
-  const handleExport = useCallback(() => {
+  const handleExportJSON = useCallback(() => {
     if (!output) return
     const exp = buildCaseExport({
       deal,
@@ -90,6 +91,11 @@ export default function SimulatorPage() {
     })
     downloadJson(`deal-${deal.companyName}`, exp)
   }, [deal, output, features, prediction, brief])
+
+  const handleExportBriefPDF = useCallback(() => {
+    if (!brief) return
+    generateBriefPDF(deal, brief, `sales-brief-${deal.companyName}`)
+  }, [deal, brief])
 
   // Deal info header component
   const DealInfoHeader = () => (
@@ -276,7 +282,7 @@ export default function SimulatorPage() {
                       )}
                     </button>
                     <button
-                      onClick={handleExport}
+                      onClick={handleExportJSON}
                       className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg hover:bg-secondary text-sm font-semibold"
                     >
                       <Download className="size-4" />
@@ -296,11 +302,11 @@ export default function SimulatorPage() {
                         Back to Analysis
                       </button>
                       <button
-                        onClick={handleExport}
+                        onClick={handleExportBriefPDF}
                         className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 font-semibold flex items-center gap-2"
                       >
                         <Download className="size-4" />
-                        Download Brief
+                        Export as PDF
                       </button>
                     </div>
                   </>
