@@ -30,3 +30,20 @@ export function riskBadgeClasses(level: RiskLevel): string {
       return 'bg-[var(--risk-low-soft)] text-[var(--risk-low)] border-[var(--risk-low)]/30'
   }
 }
+
+/**
+ * Convert readiness percentage (0-100) to readiness level.
+ * Higher percentage = higher readiness = better.
+ *
+ *   0 - 39 = Low
+ *   40 - 69 = Medium
+ *   70 - 100 = High
+ */
+export function getReadinessLevel(
+  readinessPercent: number,
+): 'Low' | 'Medium' | 'High' {
+  const r = Number.isFinite(readinessPercent) ? readinessPercent : 0
+  if (r >= 70) return 'High'
+  if (r >= 40) return 'Medium'
+  return 'Low'
+}

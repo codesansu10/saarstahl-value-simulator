@@ -204,78 +204,43 @@ export default function SimulatorPage() {
                   </p>
                 </div>
 
-                {/* Pie chart and predictions side-by-side */}
-                <div className="grid grid-cols-5 gap-6">
-                  {/* Pie chart - LEFT */}
-                  <div className="col-span-2 bg-card rounded-lg border border-border p-6 h-fit">
-                    <h3 className="font-semibold text-foreground mb-6 text-sm">
-                      Stakeholder Readiness
-                    </h3>
-                    {prediction ? (
-                      <StakeholderPieChart prediction={prediction} />
+                {/* Stakeholder analysis section */}
+                <div className="space-y-4">
+                  {/* Predictions with integrated gauge and risks */}
+                  {prediction && (
+                    <StakeholderPredictions
+                      prediction={prediction}
+                      activeStakeholder={activeStakeholder}
+                      onSelectStakeholder={setActiveStakeholder}
+                    />
+                  )}
+
+                  {!prediction && (
+                    <div className="bg-card rounded-lg border border-border p-12 text-center text-muted-foreground">
+                      <p>Run analysis to see readiness and objection risks</p>
+                    </div>
+                  )}
+
+                  {/* Run/Re-run button */}
+                  <button
+                    onClick={handleRunPrediction}
+                    disabled={!valid || predictionLoading}
+                    className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {predictionLoading ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin" />
+                        Analyzing...
+                      </>
                     ) : (
-                      <div className="flex flex-col items-center justify-center h-80 text-muted-foreground text-sm">
-                        <p>Run analysis to see readiness distribution</p>
-                      </div>
+                      <>
+                        {prediction ? 'Re-run' : 'Run'} Analysis
+                        <ChevronRight className="size-4" />
+                      </>
                     )}
-                  </div>
+                  </button>
 
-                  {/* Predictions and stakeholders - RIGHT */}
-                  <div className="col-span-3 space-y-4">
-                    {/* Stakeholder selector */}
-                    {prediction && (
-                      <div className="bg-card rounded-lg border border-border p-4">
-                        <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase">
-                          Select Stakeholder
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {STAKEHOLDERS.map((stakeholder) => (
-                            <button
-                              key={stakeholder}
-                              onClick={() => setActiveStakeholder(stakeholder)}
-                              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                                activeStakeholder === stakeholder
-                                  ? 'bg-primary text-primary-foreground'
-                                  : 'bg-secondary hover:bg-secondary/80 text-foreground'
-                              }`}
-                            >
-                              {stakeholder}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Prediction details */}
-                    {prediction && (
-                      <StakeholderPredictions
-                        prediction={prediction}
-                        activeStakeholder={activeStakeholder}
-                        onSelectStakeholder={setActiveStakeholder}
-                      />
-                    )}
-
-                    {/* Run/Re-run button */}
-                    <button
-                      onClick={handleRunPrediction}
-                      disabled={!valid || predictionLoading}
-                      className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 disabled:opacity-50"
-                    >
-                      {predictionLoading ? (
-                        <>
-                          <Loader2 className="size-4 animate-spin" />
-                          Analyzing...
-                        </>
-                      ) : (
-                        <>
-                          {prediction ? 'Re-run' : 'Run'} Analysis
-                          <ChevronRight className="size-4" />
-                        </>
-                      )}
-                    </button>
-
-                    <ModelStatusBanner prediction={prediction} />
-                  </div>
+                  <ModelStatusBanner prediction={prediction} />
                 </div>
 
                 <ContinueButton
